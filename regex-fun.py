@@ -18,6 +18,8 @@ def phone_number_brackets(candidate):
     Example: (705)555-1212
     returns the phone number in canonical form: '+1.705.555.1212'
     or empty string.
+    See this regex on Regex101.com:
+        https://regex101.com/r/qw559F/1
     '''
     patt = r'(\([\d]*\))\s?([\d]{3})-([\d]{4}$)'
     mat = re.search(patt, candidate)
