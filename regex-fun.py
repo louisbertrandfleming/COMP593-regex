@@ -21,11 +21,26 @@ def phone_number_brackets(candidate):
     See this regex on Regex101.com:
         https://regex101.com/r/qw559F/1
     '''
-    patt = r'(\([\d]*\))\s?([\d]{3})-([\d]{4}$)'
+    patt = r'(\(\d{3}\))\s?(\d{3})-(\d{4}$)'
     mat = re.search(patt, candidate)
     if mat:
         area = mat.group(1).strip('()')
         return f'+1.{area}.{mat.group(2)}.{mat.group(3)}'
+    else:
+        return ''
+
+def phone_number_dashes(candidate):
+    '''Attempt to recognize a phone number with area code between dashes.
+    Example: 1-705-555-1212 or 705-555-1212
+    returns the phone number in canonical form: '+1.705.555.1212'
+    or empty string.
+    See this regex on Regex101.com:
+        https://regex101.com/r/qw559F/1
+    '''
+    patt = r'(?:^1-)?(\d{3})-(\d{3})-(\d{4}$)'
+    mat = re.search(patt, candidate)
+    if mat:
+        return f'+1.{mat.group(1)}.{mat.group(2)}.{mat.group(3)}'
     else:
         return ''
 
@@ -40,7 +55,11 @@ def main():
             if bracketed:
                 print(bracketed)
             else:
-                print("no match")
+                dashed = phone_number_dashes(line)
+                if dashed:
+                    print(dashed)
+                else:
+                    print("no match")
     return
 
 if __name__ == '__main__':
