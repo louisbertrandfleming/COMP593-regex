@@ -25,7 +25,7 @@ Throughout, maintain a list of entries with success/fail status
         'last': <lastname>,
         'userid': <github user ID>,
         'repo': <reponame>,
-        'status': <one of success, no_repo, no_html, others TBD>
+        'status': <one of success, no_repo, no_html, github, cloned, problem, others TBD>
     }
 
 '''
@@ -82,7 +82,6 @@ def extract_student_info(path):
     # Extract the last component of the path, the actual folder name.
     folder_name = path.name
     pattern = r'\d+-\d+\s-\s(\w+) (\.|\w+|\w+-\w+)\s-\s(\w+)\s(\d+),\s(\d{4})\s(\d{3,4})\s(AM|PM)$'
-
     mat = re.search(pattern, folder_name)
     if mat:
         grps = mat.groups()
@@ -109,13 +108,17 @@ def get_github_info(students):
     then forms the proper URL to clone using ssh (instead of https).
     returns None
     '''
+    # Pattern to match <a> tag hyperlink or <p> tag plain text paste.
+    #  https://regex101.com/r/8Z43u4/1
+    PATTERN = r'href=(?:\")(https\://github\.com/.+/.+)(?:\")|(?:<p>)(https://github.com/.+/.+)(?:</p>)'
+    regex = re.compile(PATTERN)
     for student in students.values():
         folder = student['folder']
         # Get the .html file(s) 
         for name in folder.glob('*.html'): 
             with open(name, 'r') as html:
                 for line in html:
-                    mat = re.search(r"href=\"(.+)\"", line)
+                    mat = regex.search(PATTERN, line)
                     if mat:
                         url = mat.group(1)
                         components = url.split('/')  # split along / separator
@@ -125,12 +128,18 @@ def get_github_info(students):
                         # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
                         student['ssh_url'] = f"{server_name}:{components[3]}/{components[4]}.git"
                         student['status'] = 'github'  # Means that we have the GitHub info.
+                    else:
+                        student['ssh_url'] = ""
+                        student['status'] = 'no_url'
     return
 
 def clone_repos(students):
     '''Spawn a new task for each to git clone the student repo.'''
     for k in students.keys():
         student = students[k]
+        if student['status'] != 'github':
+            print(f"multi-clone: error: No GitHub URL found for student {k}.")
+            continue
         command = ("git", "clone", student['ssh_url'])
         print(command)
         try:
@@ -155,7 +164,7 @@ def clone_repos(students):
                 student['status'] = 'cloned'
             else:
                 student['status'] = 'problem'
-                print(f'  stdout="{completed.stdout}"\n  stderr="{completed.stderr}"')
+                print(f'  stderr="{completed.stderr}"')
         except subprocess.CalledProcessError as err:
             print(f'Subprocess failed for student {student['first']} {student['last']}\n'
                   '{err.cmd}: {err.output}')
@@ -175,8 +184,15 @@ def main():
         student = extract_student_info(f)
         # Add the student dictionary to the dictionary of students,
         # using first+last as the key.
+        # Check datetime to make sure that we are using the most recent submission
         if student:
-            students[student['first'].lower() + student['last'].lower()] = student
+            student_key = student['first'].lower() + student['last'].lower()
+            # If student already in students, check datetime to keep latest
+            if student_key in students:
+                prev_datetime = students[student_key]['datetime']
+                if student['datetime'] > prev_datetime:
+                    del students[student_key]
+            students[student_key] = student
 
     get_github_info(students)  # Add GitHub info to each dictionary
     # for d in students.values():
