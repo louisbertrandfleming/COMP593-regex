@@ -29,9 +29,10 @@ Throughout, maintain a list of entries with success/fail status
     }
 
 ToDo: guard against broken URLs like *.git.git
+    implemented but not tested
 
 '''
-from sys import argv
+from sys import argv, stderr
 import re  # Regular expressions to dig through folder names
 import pathlib  # file & folder path objects
 import os
@@ -47,7 +48,6 @@ server_name = "git@github-fleming"  # Different from my usual GitHub ID for SSH 
     # Host github-fleming
     #     Hostname github.com
     #     IdentityFile C:/Users/Louis/.ssh/id_ed25519-win11-fleming
-
 
 
 def get_folder(argv):
@@ -137,7 +137,8 @@ def get_github_info(students):
                         url = mat.group(1)
                         components = url.split('/')  # split along / separator
                         student['userid'] = components[3]
-                        student['repo'] = components[4]
+                        # remove any extraneous ".git" name extensions
+                        student['repo'] = re.sub(r"\.git$", components[4])
                         # Form the SSH URL
                         # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
                         student['ssh_url'] = f"{server_name}:{components[3]}/{components[4]}.git"
@@ -155,7 +156,7 @@ def clone_repos(students):
             print(f"multi-clone: error: No GitHub URL found for student {k}.")
             continue
         command = ("git", "clone", student['ssh_url'])
-        print(command)
+        print(command, file=stderr)
         try:
             completed = subprocess.run( command,
                                stdin=None,
@@ -208,7 +209,7 @@ def main():
                     del students[student_key]
             students[student_key] = student
 
-    print(f'students=\n{students}\n')
+    print(f'students=\n{students}\n', file=stderr)
     get_github_info(students)  # Add GitHub info to each dictionary
     # for d in students.values():
     #     print(d)
