@@ -28,6 +28,8 @@ Throughout, maintain a list of entries with success/fail status
         'status': <one of success, no_repo, no_html, github, cloned, problem, others TBD>
     }
 
+ToDo: guard against broken URLs like *.git.git
+
 '''
 from sys import argv
 import re  # Regular expressions to dig through folder names
@@ -37,7 +39,15 @@ from datetime import datetime  # The strptime() method to convert strings to dat
 import subprocess  # for the git clone task
 
 # Constants
+# OpenSSH, to use different entry in .ssh/config
 server_name = "git@github-fleming"  # Different from my usual GitHub ID for SSH key reasons
+# Windows: the git command uses a built-in OpenSSH client so it does not use
+# the PuTTY installation or Pageant. Configure the usual .ssh/config file
+# the same way as you would under Linux/BSD.
+    # Host github-fleming
+    #     Hostname github.com
+    #     IdentityFile C:/Users/Louis/.ssh/id_ed25519-win11-fleming
+
 
 
 def get_folder(argv):
@@ -104,27 +114,31 @@ def get_github_info(students):
     '''Add GitHub info to each dictionary.
     Look for the .html file created by the D2L downloader. This file contains
     the comment that should give the URL to the repo on GitHub.
-    Adds user ID and repo name to the student's dictionary, 
+    Adds user ID and repo name to the student's dictionary,
     then forms the proper URL to clone using ssh (instead of https).
     returns None
     '''
     # Pattern to match <a> tag hyperlink or <p> tag plain text paste.
     #  https://regex101.com/r/8Z43u4/1
     PATTERN = r'href=(?:\")(https\://github\.com/.+/.+)(?:\")|(?:<p>)(https://github.com/.+/.+)(?:</p>)'
-    regex = re.compile(PATTERN)
+#     regex = re.compile(PATTERN)
     for student in students.values():
+        if not student['status'] == "folder":
+            continue
         folder = student['folder']
-        # Get the .html file(s) 
-        for name in folder.glob('*.html'): 
-            with open(name, 'r') as html:
+        print(f"folder={folder}")
+        # Get the .html file(s)
+        for name in folder.glob('*.html'):
+            with open(name, 'r', encoding='utf-8') as html:
                 for line in html:
-                    mat = regex.search(PATTERN, line)
+                    print(PATTERN, line)
+                    mat = re.search(PATTERN, line)
                     if mat:
                         url = mat.group(1)
                         components = url.split('/')  # split along / separator
                         student['userid'] = components[3]
                         student['repo'] = components[4]
-                        # Form the SSH URL 
+                        # Form the SSH URL
                         # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
                         student['ssh_url'] = f"{server_name}:{components[3]}/{components[4]}.git"
                         student['status'] = 'github'  # Means that we have the GitHub info.
@@ -166,8 +180,8 @@ def clone_repos(students):
                 student['status'] = 'problem'
                 print(f'  stderr="{completed.stderr}"')
         except subprocess.CalledProcessError as err:
-            print(f'Subprocess failed for student {student['first']} {student['last']}\n'
-                  '{err.cmd}: {err.output}')
+            print(f"Subprocess failed for student {student['first']} {student['last']}\n"
+                  f"{err.cmd}: {err.output}")
     return  # return nothing, everything is in the dictionary
 
 def main():
@@ -194,6 +208,7 @@ def main():
                     del students[student_key]
             students[student_key] = student
 
+    print(f'students=\n{students}\n')
     get_github_info(students)  # Add GitHub info to each dictionary
     # for d in students.values():
     #     print(d)
@@ -202,7 +217,7 @@ def main():
     # Report the outcome
     for k in students.keys():
         student = students[k]
-        print(f'{k}: {student['status']}')
+        print(f"{k}: {student['status']}")
     return 0
 
 
