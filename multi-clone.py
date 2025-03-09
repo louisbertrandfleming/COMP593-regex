@@ -131,14 +131,20 @@ def get_github_info(students):
         for name in folder.glob('*.html'):
             with open(name, 'r', encoding='utf-8') as html:
                 for line in html:
-                    print(PATTERN, line)
+                    print(PATTERN, line, file=stderr)
                     mat = re.search(PATTERN, line)
                     if mat:
-                        url = mat.group(1)
+                        # The URL could be in one of the groups, which one?
+                        for grp in mat.groups():
+                            if 0 == str(grp).find(r"https://github.com"):
+                                url = str(grp)
+                                break
+                        print(url, file=stderr)
                         components = url.split('/')  # split along / separator
+                        print(components, file=stderr)
                         student['userid'] = components[3]
                         # remove any extraneous ".git" name extensions
-                        student['repo'] = re.sub(r"\.git$", components[4])
+                        student['repo'] = re.sub(r"\.git$", "", components[4])
                         # Form the SSH URL
                         # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
                         student['ssh_url'] = f"{server_name}:{components[3]}/{components[4]}.git"
@@ -209,7 +215,7 @@ def main():
                     del students[student_key]
             students[student_key] = student
 
-    print(f'students=\n{students}\n', file=stderr)
+    # print(f'students=\n{students}\n', file=stderr)
     get_github_info(students)  # Add GitHub info to each dictionary
     # for d in students.values():
     #     print(d)
