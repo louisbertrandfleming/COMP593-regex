@@ -118,10 +118,6 @@ def get_github_info(students):
     then forms the proper URL to clone using ssh (instead of https).
     returns None
     '''
-    # Pattern to match <a> tag hyperlink or <p> tag plain text paste.
-    #  https://regex101.com/r/8Z43u4/1
-    PATTERN = r'href=(?:\")(https\://github\.com/.+/.+)(?:\")|(?:<p>)(https://github.com/.+/.+)(?:</p>)'
-#     regex = re.compile(PATTERN)
     for student in students.values():
         if not student['status'] == "folder":
             continue
@@ -129,30 +125,75 @@ def get_github_info(students):
         print(f"folder={folder}")
         # Get the .html file(s)
         for name in folder.glob('*.html'):
-            with open(name, 'r', encoding='utf-8') as html:
-                for line in html:
-                    print(PATTERN, line, file=stderr)
-                    mat = re.search(PATTERN, line)
-                    if mat:
-                        # The URL could be in one of the groups, which one?
-                        for grp in mat.groups():
-                            if 0 == str(grp).find(r"https://github.com"):
-                                url = str(grp)
-                                break
-                        print(url, file=stderr)
-                        components = url.split('/')  # split along / separator
-                        print(components, file=stderr)
-                        student['userid'] = components[3]
-                        # remove any extraneous ".git" name extensions
-                        student['repo'] = re.sub(r"\.git$", "", components[4])
-                        # Form the SSH URL
-                        # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
-                        student['ssh_url'] = f"{server_name}:{components[3]}/{components[4]}.git"
-                        student['status'] = 'github'  # Means that we have the GitHub info.
-                    else:
-                        student['ssh_url'] = ""
-                        student['status'] = 'no_url'
+            get_student_url(student, name)
+            # with open(name, 'r', encoding='utf-8') as html:
+            #     for line in html:
+            #         #print(PATTERN, line, file=stderr)
+            #         mat = re.search(PATTERN, line)
+            #         if mat:
+            #             # The URL could be in one of the groups, which one?
+            #             for grp in mat.groups():
+            #                 if 0 == str(grp).find(r"https://github.com"):
+            #                     url = str(grp)
+            #                     break
+            #             print(url, file=stderr)
+            #             components = url.split('/')  # split along / separator
+            #             print(f"Components = {components}", file=stderr)
+            #             student['userid'] = components[3]
+            #             # remove any extraneous ".git" name extensions
+            #             repo = components[4]
+            #             print(f"repo = {repo}", file=stderr)
+            #             while re.search(r"\.git$", repo):
+            #                 repo = re.sub(r"\.git$", "", repo)
+            #                 print(f"trimmed = {repo}", file=stderr)
+            #             student['repo'] = repo
+            #             print(f"student.repo = {student['repo']}", file=stderr)
+
+            #             # Form the SSH URL
+            #             # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
+            #             student['ssh_url'] = f"{server_name}:{components[3]}/{repo}.git"
+            #             print(f"student.ssh_url = {student['ssh_url']}", file=stderr)
+            #             student['status'] = 'github'  # Means that we have the GitHub info.
+            #         else:
+            #             student['ssh_url'] = ""
+            #             student['status'] = 'no_url'
     return
+
+def get_student_url(student, name):
+    # Pattern to match <a> tag hyperlink or <p> tag plain text paste.
+    #  https://regex101.com/r/8Z43u4/1
+    PATTERN = r'href=(?:\")(https\://github\.com/.+/.+)(?:\")|(?:<p>)(https://github.com/.+/.+)(?:</p>)'
+    with open(name, 'r', encoding='utf-8') as html:
+        for line in html:
+            mat = re.search(PATTERN, line)
+            if mat:
+                # The URL could be in one of the groups, which one?
+                for grp in mat.groups():
+                    if 0 == str(grp).find(r"https://github.com"):
+                        url = str(grp)
+                        break
+                print(url, file=stderr)
+                components = url.split('/')  # split along / separator
+                print(f"Components = {components}", file=stderr)
+                student['userid'] = components[3]
+                # remove any extraneous ".git" name extensions
+                repo = components[4]
+                print(f"repo = {repo}", file=stderr)
+                while re.search(r"\.git$", repo):
+                    repo = re.sub(r"\.git$", "", repo)
+                    print(f"trimmed = {repo}", file=stderr)
+                student['repo'] = repo
+                print(f"student.repo = {student['repo']}", file=stderr)
+
+                # Form the SSH URL
+                # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
+                student['ssh_url'] = f"{server_name}:{components[3]}/{repo}.git"
+                print(f"student.ssh_url = {student['ssh_url']}", file=stderr)
+                student['status'] = 'github'  # Means that we have the GitHub info.
+                return
+            else:
+                student['ssh_url'] = ""
+                student['status'] = 'no_url'
 
 def clone_repos(students):
     '''Spawn a new task for each to git clone the student repo.'''
