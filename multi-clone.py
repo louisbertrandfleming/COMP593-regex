@@ -56,7 +56,7 @@ def get_folder(argv):
     if len(argv) > 1:
         folder = pathlib.Path(argv[1])
     else:
-        print("multi-clone: Expected folder name on command line, using CWD.")
+        print("multi-clone: Expected folder name on command line, using CWD.", file=stderr)
         folder = pathlib.Path.cwd()
     return folder.resolve(strict=True)
 
@@ -122,41 +122,10 @@ def get_github_info(students):
         if not student['status'] == "folder":
             continue
         folder = student['folder']
-        print(f"folder={folder}")
+        # print(f"folder={folder}")  # Debug only
         # Get the .html file(s)
         for name in folder.glob('*.html'):
             get_student_url(student, name)
-            # with open(name, 'r', encoding='utf-8') as html:
-            #     for line in html:
-            #         #print(PATTERN, line, file=stderr)
-            #         mat = re.search(PATTERN, line)
-            #         if mat:
-            #             # The URL could be in one of the groups, which one?
-            #             for grp in mat.groups():
-            #                 if 0 == str(grp).find(r"https://github.com"):
-            #                     url = str(grp)
-            #                     break
-            #             print(url, file=stderr)
-            #             components = url.split('/')  # split along / separator
-            #             print(f"Components = {components}", file=stderr)
-            #             student['userid'] = components[3]
-            #             # remove any extraneous ".git" name extensions
-            #             repo = components[4]
-            #             print(f"repo = {repo}", file=stderr)
-            #             while re.search(r"\.git$", repo):
-            #                 repo = re.sub(r"\.git$", "", repo)
-            #                 print(f"trimmed = {repo}", file=stderr)
-            #             student['repo'] = repo
-            #             print(f"student.repo = {student['repo']}", file=stderr)
-
-            #             # Form the SSH URL
-            #             # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
-            #             student['ssh_url'] = f"{server_name}:{components[3]}/{repo}.git"
-            #             print(f"student.ssh_url = {student['ssh_url']}", file=stderr)
-            #             student['status'] = 'github'  # Means that we have the GitHub info.
-            #         else:
-            #             student['ssh_url'] = ""
-            #             student['status'] = 'no_url'
     return
 
 def get_student_url(student, name):
@@ -172,23 +141,23 @@ def get_student_url(student, name):
                     if 0 == str(grp).find(r"https://github.com"):
                         url = str(grp)
                         break
-                print(url, file=stderr)
+                # print(url, file=stderr)  # Debug only
                 components = url.split('/')  # split along / separator
-                print(f"Components = {components}", file=stderr)
+                # print(f"Components = {components}", file=stderr)   # Debug only
                 student['userid'] = components[3]
                 # remove any extraneous ".git" name extensions
                 repo = components[4]
-                print(f"repo = {repo}", file=stderr)
+                # print(f"repo = {repo}", file=stderr)  # Debug only
                 while re.search(r"\.git$", repo):
                     repo = re.sub(r"\.git$", "", repo)
-                    print(f"trimmed = {repo}", file=stderr)
+                    # print(f"trimmed = {repo}", file=stderr)  # Debug only
                 student['repo'] = repo
-                print(f"student.repo = {student['repo']}", file=stderr)
+                # print(f"student.repo = {student['repo']}", file=stderr)  # Debug only
 
                 # Form the SSH URL
                 # Example: git clone git@github-fleming:CSIkid/COMP593-lab2.git
                 student['ssh_url'] = f"{server_name}:{components[3]}/{repo}.git"
-                print(f"student.ssh_url = {student['ssh_url']}", file=stderr)
+                # print(f"student.ssh_url = {student['ssh_url']}", file=stderr)  # Debug only
                 student['status'] = 'github'  # Means that we have the GitHub info.
                 return
             else:
@@ -203,7 +172,7 @@ def clone_repos(students):
             print(f"multi-clone: error: No GitHub URL found for student {k}.")
             continue
         command = ("git", "clone", student['ssh_url'])
-        print(command, file=stderr)
+        # print(command, file=stderr)  # Debug only
         try:
             completed = subprocess.run( command,
                                stdin=None,
@@ -221,23 +190,23 @@ def clone_repos(students):
                                env=None,
                                universal_newlines=None
                             )
-            print(f'{k}: return={completed.returncode}')
+            # print(f'{k}: return={completed.returncode}')
             if completed.returncode == 0:
                 student['status'] = 'cloned'
             else:
                 student['status'] = 'problem'
-                print(f'  stderr="{completed.stderr}"')
+                print(f'  stderr="{completed.stderr}"', file=stderr)
         except subprocess.CalledProcessError as err:
+            student['status'] = 'problem'
             print(f"Subprocess failed for student {student['first']} {student['last']}\n"
-                  f"{err.cmd}: {err.output}")
+                  f"{err.cmd}: {err.output}", file=stderr)
     return  # return nothing, everything is in the dictionary
 
 def main():
     try:
         main_folder = get_folder(argv)
     except OSError as err:
-        print('multi_clone: Cannot resolve directory name from command line')
-        print(err)
+        print(f'multi_clone: Cannot resolve directory name from command line\n    {err}')
         exit(0)
     print(f'[{datetime.now().isoformat()}] multi-clone.py: Processing {main_folder}')
     folders = list_folders(main_folder)
@@ -258,8 +227,6 @@ def main():
 
     # print(f'students=\n{students}\n', file=stderr)
     get_github_info(students)  # Add GitHub info to each dictionary
-    # for d in students.values():
-    #     print(d)
     # spawn a new task for each, recording the outcome in the dictionary.
     clone_repos(students)
     # Report the outcome
@@ -271,4 +238,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
